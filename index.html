@@ -1,105 +1,1160 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>Reddit Viewer</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <link rel="manifest" href="manifest.json" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Viewer" />
-    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
-    <meta name="format-detection" content="telephone=no" />
-    <meta name="theme-color" content="#f4f4f4" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#282828" media="(prefers-color-scheme: dark)" />
-    <link rel="stylesheet" href="styles.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+  <meta charset="UTF-8" />
+  <title>Reddit Archive Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+  <style>
+    :root {
+      --bg: #f4f4f4;
+      --panel-bg: #ffffff;
+      --card-bg: #ffffff;
+      --text: #222222;
+      --text-muted: #666666;
+      --border: #dddddd;
+      --accent: #ff4500;
+      --accent-hover: #e03d00;
+      --read-opacity: 0.6;
+    }
+
+    body.dark-gray {
+      --bg: #282828;
+      --panel-bg: #1e1e1e;
+      --card-bg: #333333;
+      --text: #e1e1e6;
+      --text-muted: #aaaaaa;
+      --border: #444444;
+      --accent: #ff5722;
+      --accent-hover: #f4511e;
+    }
+
+    body.true-black {
+      --bg: #000000;
+      --panel-bg: #121212;
+      --card-bg: #1a1a1a;
+      --text: #e1e1e6;
+      --text-muted: #888888;
+      --border: #222222;
+      --accent: #ff4500;
+      --accent-hover: #e03d00;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 20px;
+      line-height: 1.5;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 15px;
+      color: var(--accent);
+    }
+
+    .banner-toggle-bar {
+      max-width: 900px;
+      margin: 0 auto 10px auto;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .banner-toggle-btn {
+      background: var(--panel-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .banner-toggle-btn:hover {
+      border-color: var(--accent);
+    }
+
+    .hideable-banner {
+      max-width: 900px;
+      margin: 0 auto 20px auto;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      transition: all 0.3s ease-in-out;
+    }
+
+    .hideable-banner.hidden {
+      display: none;
+    }
+
+    .banner-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .banner-section h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    .mode-selector {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .file-loader {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .file-btn {
+      background: var(--accent);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: inline-block;
+    }
+
+    .file-btn:hover {
+      background: var(--accent-hover);
+    }
+
+    #db-file { display: none; }
+    #db-status { font-size: 0.85rem; color: var(--text-muted); }
+
+    .controls {
+      max-width: 900px;
+      margin: 0 auto 20px auto;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    select, input[type="text"] {
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 4px;
+      outline: none;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .author-filter-bar {
+      background: var(--card-bg);
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.9rem;
+    }
+
+    .author-filter-bar button {
+      background: transparent;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .resume-reading {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .resume-reading button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    #postCount {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    #wrapper {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .post {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      cursor: pointer;
+    }
+
+    .post.read-post {
+      opacity: var(--read-opacity);
+    }
+
+    .post.saved-post {
+      border-left: 4px solid var(--accent);
+    }
+
+    .post-meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .post-author {
+      color: var(--accent);
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .post-author:hover {
+      text-decoration: underline;
+    }
+
+    .post-subreddit {
+      font-weight: 600;
+    }
+
+    .post h3 {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+    }
+
+    .post-preview {
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 12px;
+      white-space: pre-wrap;
+    }
+
+    .post-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-action {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+
+    .btn-action:hover {
+      background: var(--border);
+    }
+
+    .comment-thread {
+      margin-top: 12px;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
+
+    .comment-thread-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px 0;
+    }
+
+    .comment-list {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .comment-item {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 0.9rem;
+    }
+
+    .comment-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .comment-body {
+      white-space: pre-wrap;
+    }
+
+    .blog-nav {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .nav-button {
+      background: var(--panel-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .nav-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .single-post-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .single-post {
+      cursor: default;
+    }
+
+    .single-meta {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    .post-content {
+      font-size: 1rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      margin-bottom: 20px;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .pagination button {
+      background: var(--panel-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .empty-msg {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 40px 0;
+    }
+  </style>
 </head>
 <body>
 
-<h1>Reddit Viewer</h1>
+  <h1>Reddit Viewer</h1>
 
-<div class="mode-selector">
-    <input type="radio" id="mode-light"     name="colorMode" value="light"      checked />
-    <label for="mode-light">Light</label>
-    <input type="radio" id="mode-darkgray"  name="colorMode" value="dark-gray"  />
-    <label for="mode-darkgray">Dark Gray</label>
-    <input type="radio" id="mode-trueblack" name="colorMode" value="true-black" />
-    <label for="mode-trueblack">True Black</label>
-</div>
+  <div class="banner-toggle-bar">
+    <button id="toggleBannerBtn" class="banner-toggle-btn">
+      ⚙️ Setup & Import Banner <span id="bannerToggleIcon">▲</span>
+    </button>
+  </div>
 
-<div class="controls">
+  <div id="importBanner" class="hideable-banner">
+    <div class="banner-section">
+      <h3>Theme Mode</h3>
+      <div class="mode-selector">
+        <input type="radio" id="mode-light" name="colorMode" value="light" checked />
+        <label for="mode-light">Light</label>
+        <input type="radio" id="mode-darkgray" name="colorMode" value="dark-gray" />
+        <label for="mode-darkgray">Dark Gray</label>
+        <input type="radio" id="mode-trueblack" name="colorMode" value="true-black" />
+        <label for="mode-trueblack">True Black</label>
+      </div>
+    </div>
 
-    <div class="file-loader">
-        <div id="dropZone" class="drop-zone">
-            <div class="drop-zone-text">📂 Drop SQLite Database (.db, .sqlite) here or <span class="drop-zone-link">browse</span></div>
-            <div class="drop-zone-hint">Load exported subreddit SQLite database file</div>
-            <input type="file" id="fileInput" accept=".db,.sqlite,.sqlite3" multiple />
-        </div>
-        <div id="fileList" class="file-list"></div>
-        <button id="loadButton" disabled>Load Files</button>
-        <div id="loadStatus" class="load-status"></div>
+    <div class="banner-section">
+      <h3>Import Database</h3>
+      <div class="file-loader">
+        <label class="file-btn" for="db-file">Open SQLite Database</label>
+        <input type="file" id="db-file" accept=".db,.sqlite,.sqlite3" disabled />
+        <span id="db-status">Initializing engine...</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="filter-row">
+      <label class="toggle"><input type="checkbox" id="showTextPosts" checked /> Text Posts</label>
+      <label class="toggle"><input type="checkbox" id="showLinkPosts" checked /> Link Posts</label>
+      <label class="toggle"><input type="checkbox" id="showComments" checked /> Show Comments</label>
+      <label class="toggle"><input type="checkbox" id="showSavedOnly" /> Saved Only</label>
     </div>
 
     <div class="filter-row">
-        <label class="toggle"><input type="checkbox" id="showTextPosts" checked /> Text Posts</label>
-        <label class="toggle"><input type="checkbox" id="showLinkPosts" checked /> Link Posts</label>
-        <label class="toggle"><input type="checkbox" id="showComments"  checked /> Show Comments</label>
-        <label class="toggle"><input type="checkbox" id="showSavedOnly"          /> Saved Only</label>
-    </div>
-
-    <div class="filter-row">
-        <label class="toggle">
-            Sort:
-            <select id="sortBy">
-                <option value="none">None</option>
-                <option value="textLength">Text Length</option>
-                <option value="scoreAsc">Score ↑</option>
-                <option value="scoreDesc">Score ↓</option>
-                <option value="dateAsc">Date ↑</option>
-                <option value="dateDesc">Date ↓</option>
-            </select>
-        </label>
-        <label class="toggle">
-            Font:
-            <select id="fontSizeSelect">
-                <option value="14px">14px</option>
-                <option value="16px" selected>16px</option>
-                <option value="18px">18px</option>
-                <option value="20px">20px</option>
-                <option value="22px">22px</option>
-            </select>
-        </label>
-        <label class="toggle">
-            Spacing:
-            <select id="lineHeightSelect">
-                <option value="1.2">1.2</option>
-                <option value="1.5" selected>1.5</option>
-                <option value="1.8">1.8</option>
-                <option value="2">2.0</option>
-            </select>
-        </label>
-        <input type="text" id="searchInput" placeholder="Search title, content, author…" />
+      <label class="toggle">
+        Sort:
+        <select id="sortBy">
+          <option value="none">None</option>
+          <option value="textLength">Text Length</option>
+          <option value="scoreAsc">Score ↑</option>
+          <option value="scoreDesc">Score ↓</option>
+          <option value="dateAsc">Date ↑</option>
+          <option value="dateDesc">Date ↓</option>
+        </select>
+      </label>
+      <label class="toggle">
+        Font:
+        <select id="fontSizeSelect">
+          <option value="14px">14px</option>
+          <option value="16px" selected>16px</option>
+          <option value="18px">18px</option>
+          <option value="20px">20px</option>
+          <option value="22px">22px</option>
+        </select>
+      </label>
+      <label class="toggle">
+        Spacing:
+        <select id="lineHeightSelect">
+          <option value="1.2">1.2</option>
+          <option value="1.5" selected>1.5</option>
+          <option value="1.8">1.8</option>
+          <option value="2">2.0</option>
+        </select>
+      </label>
+      <input type="text" id="searchInput" placeholder="Search title, content, author…" />
     </div>
 
     <div id="authorFilterBar" class="author-filter-bar" style="display:none">
-        Filtering by author: <strong id="authorFilterName"></strong>
-        <button id="clearAuthorFilter">✕ Clear</button>
+      Filtering by author: <strong id="authorFilterName"></strong>
+      <button id="clearAuthorFilter">✕ Clear</button>
     </div>
+  </div>
 
-</div>
+  <div id="postCount"></div>
 
-<div id="postCount"></div>
-
-<div id="wrapper">
+  <div id="wrapper">
     <div id="content"></div>
     <div class="pagination">
-        <button id="prevBtn" disabled>← Prev</button>
-        <span id="pageInfo">Page 0</span>
-        <button id="nextBtn" disabled>Next →</button>
+      <button id="prevBtn" disabled>← Prev</button>
+      <span id="pageInfo">Page 0</span>
+      <button id="nextBtn" disabled>Next →</button>
     </div>
-</div>
+  </div>
 
-<script src="app.js"></script>
+  <script>
+    let SQL = null;
+    let db = null;
+
+    let readPosts = new Set();
+    let savedPosts = new Set();
+    let readingProgress = {};
+    let lastReadPosition = null;
+    let currentAuthorFilter = null;
+
+    let postsData = [];
+    let commentsMap = {};
+    let filteredData = [];
+    let currentPage = 1;
+    const pageSize = 10;
+    let lastScrollY = 0;
+
+    const body = document.body;
+    const dbFileInput = document.getElementById('db-file');
+    const dbStatus = document.getElementById('db-status');
+    const modeRadios = document.querySelectorAll('input[name="colorMode"]');
+    const contentDiv = document.getElementById('content');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const pageInfo = document.getElementById('pageInfo');
+    const showTextPosts = document.getElementById('showTextPosts');
+    const showLinkPosts = document.getElementById('showLinkPosts');
+    const showComments = document.getElementById('showComments');
+    const showSavedOnly = document.getElementById('showSavedOnly');
+    const sortBy = document.getElementById('sortBy');
+    const searchInput = document.getElementById('searchInput');
+    const fontSizeSelect = document.getElementById('fontSizeSelect');
+    const lineHeightSelect = document.getElementById('lineHeightSelect');
+    const postCountDiv = document.getElementById('postCount');
+    const paginationDiv = document.querySelector('.pagination');
+    const authorFilterBar = document.getElementById('authorFilterBar');
+    const authorFilterName = document.getElementById('authorFilterName');
+    const clearAuthorBtn = document.getElementById('clearAuthorFilter');
+    const toggleBannerBtn = document.getElementById('toggleBannerBtn');
+    const importBanner = document.getElementById('importBanner');
+    const bannerToggleIcon = document.getElementById('bannerToggleIcon');
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadStoredData();
+      setupControls();
+      initSqlEngine();
+    });
+
+    toggleBannerBtn.addEventListener('click', () => {
+      const isHidden = importBanner.classList.toggle('hidden');
+      bannerToggleIcon.textContent = isHidden ? '▼' : '▲';
+    });
+
+    function initSqlEngine() {
+      initSqlJs({
+        locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+      }).then(sqlModule => {
+        SQL = sqlModule;
+        dbStatus.textContent = 'Ready to open database file.';
+        dbFileInput.disabled = false;
+      }).catch(err => {
+        dbStatus.textContent = 'Failed to load WebAssembly engine.';
+      });
+    }
+
+    dbFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      dbStatus.textContent = 'Loading database...';
+      const reader = new FileReader();
+
+      reader.onload = function() {
+        try {
+          const Uints = new Uint8Array(reader.result);
+          db = new SQL.Database(Uints);
+          dbStatus.textContent = `Loaded: ${file.name}`;
+          searchInput.disabled = false;
+          loadFromDb();
+        } catch (err) {
+          dbStatus.textContent = 'Error parsing database file.';
+          alert('Could not open SQLite database: ' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    function queryObjects(sql, params = []) {
+      if (!db) return [];
+      try {
+        const stmt = db.prepare(sql);
+        stmt.bind(params);
+        const results = [];
+        while (stmt.step()) {
+          results.push(stmt.getAsObject());
+        }
+        stmt.free();
+        return results;
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function loadFromDb() {
+      postsData = queryObjects("SELECT * FROM posts");
+      let comments = [];
+      try {
+        comments = queryObjects("SELECT * FROM comments");
+      } catch (e) {
+        comments = [];
+      }
+
+      commentsMap = {};
+      comments.forEach(item => {
+        let parentId = (item.link_id || '').replace(/^t\d_/, '');
+        if (!parentId && item.parent_id) {
+          parentId = item.parent_id.replace(/^t\d_/, '');
+        }
+        if (!commentsMap[parentId]) commentsMap[parentId] = [];
+        commentsMap[parentId].push(item);
+      });
+
+      for (const id in commentsMap) {
+        commentsMap[id].sort((a, b) => (a.created_utc || 0) - (b.created_utc || 0));
+      }
+
+      applyFilters();
+      showResumeButton();
+    }
+
+    function loadStoredData() {
+      try {
+        const rp = localStorage.getItem('readPosts');
+        const sp = localStorage.getItem('savedPosts');
+        const rg = localStorage.getItem('readingProgress');
+        const lr = localStorage.getItem('lastReadPosition');
+        const af = localStorage.getItem('currentAuthorFilter');
+        if (rp) readPosts = new Set(JSON.parse(rp));
+        if (sp) savedPosts = new Set(JSON.parse(sp));
+        if (rg) readingProgress = JSON.parse(rg);
+        if (lr) lastReadPosition = JSON.parse(lr);
+        if (af) currentAuthorFilter = af;
+      } catch (e) {
+        ['readPosts','savedPosts','readingProgress','lastReadPosition','currentAuthorFilter']
+          .forEach(k => localStorage.removeItem(k));
+      }
+    }
+
+    function saveToStorage(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+    }
+
+    modeRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        body.classList.remove('dark-gray', 'true-black');
+        if (radio.value === 'dark-gray') body.classList.add('dark-gray');
+        if (radio.value === 'true-black') body.classList.add('true-black');
+      });
+    });
+
+    function isComment(item) {
+      return 'body' in item && !('title' in item);
+    }
+
+    function isTextPost(item) {
+      if (isComment(item)) return false;
+      return ('is_self' in item) ? Boolean(item.is_self) : Boolean(item.selftext);
+    }
+
+    function isLinkPost(item) {
+      if (isComment(item)) return false;
+      return ('is_self' in item) ? !item.is_self : (Boolean(item.url) && !item.selftext);
+    }
+
+    function getPostId(item) {
+      return String(item.id || `${item.author}_${item.created_utc}_${(item.title || item.body || '').substring(0, 20)}`);
+    }
+
+    function shortenText(text, max) {
+      if (!text) return '';
+      return text.length <= max ? text : text.substring(0, max) + '…';
+    }
+
+    function formatDate(item) {
+      return new Date((item.created_utc || item.created || 0) * 1000).toLocaleString();
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function applyFilters() {
+      const showText = showTextPosts.checked;
+      const showLink = showLinkPosts.checked;
+      const savedOnly = showSavedOnly.checked;
+      const query = searchInput.value.toLowerCase().trim();
+
+      filteredData = postsData.filter(item => {
+        if (isTextPost(item) && !showText) return false;
+        if (isLinkPost(item) && !showLink) return false;
+        if (savedOnly && !savedPosts.has(getPostId(item))) return false;
+        if (currentAuthorFilter && item.author !== currentAuthorFilter) return false;
+
+        if (query) {
+          const postHay = [item.title, item.selftext, item.url, item.author]
+            .filter(Boolean).join(' ').toLowerCase();
+          const commentHay = (commentsMap[item.id] || [])
+            .map(c => `${c.body || ''} ${c.author || ''}`).join(' ').toLowerCase();
+          if (!postHay.includes(query) && !commentHay.includes(query)) return false;
+        }
+
+        return true;
+      });
+
+      applySorting();
+      currentPage = 1;
+      renderPage(currentPage);
+      updateAuthorFilterBar();
+    }
+
+    function applySorting() {
+      const mode = sortBy.value;
+      if (mode === 'none') return;
+      filteredData.sort((a, b) => {
+        switch (mode) {
+          case 'textLength': return (b.selftext || '').length - (a.selftext || '').length;
+          case 'scoreAsc': return (a.score || 0) - (b.score || 0);
+          case 'scoreDesc': return (b.score || 0) - (a.score || 0);
+          case 'dateAsc': return (a.created_utc || 0) - (b.created_utc || 0);
+          case 'dateDesc': return (b.created_utc || 0) - (a.created_utc || 0);
+          default: return 0;
+        }
+      });
+    }
+
+    function filterByAuthor(author) {
+      currentAuthorFilter = author;
+      localStorage.setItem('currentAuthorFilter', author);
+      applyFilters();
+      window.scrollTo(0, 0);
+    }
+
+    function clearAuthorFilter() {
+      currentAuthorFilter = null;
+      localStorage.removeItem('currentAuthorFilter');
+      applyFilters();
+    }
+
+    function updateAuthorFilterBar() {
+      if (currentAuthorFilter) {
+        authorFilterBar.style.display = 'flex';
+        authorFilterName.textContent = currentAuthorFilter;
+      } else {
+        authorFilterBar.style.display = 'none';
+      }
+    }
+
+    clearAuthorBtn.addEventListener('click', clearAuthorFilter);
+
+    function markAsRead(item) {
+      readPosts.add(getPostId(item));
+      saveToStorage('readPosts', [...readPosts]);
+    }
+
+    function toggleRead(item, cardEl) {
+      const id = getPostId(item);
+      readPosts.has(id) ? readPosts.delete(id) : readPosts.add(id);
+      saveToStorage('readPosts', [...readPosts]);
+      cardEl.classList.toggle('read-post', readPosts.has(id));
+      const btn = cardEl.querySelector('.btn-read');
+      if (btn) btn.textContent = readPosts.has(id) ? '✓' : '○';
+    }
+
+    function toggleSaved(item, cardEl) {
+      const id = getPostId(item);
+      savedPosts.has(id) ? savedPosts.delete(id) : savedPosts.add(id);
+      saveToStorage('savedPosts', [...savedPosts]);
+      cardEl.classList.toggle('saved-post', savedPosts.has(id));
+      const btn = cardEl.querySelector('.btn-save');
+      if (btn) btn.textContent = savedPosts.has(id) ? '★' : '☆';
+    }
+
+    function buildCommentThread(postId, startCollapsed) {
+      const allComments = commentsMap[postId] || [];
+      const query = searchInput.value.toLowerCase().trim();
+
+      const visible = allComments.filter(c => {
+        if (currentAuthorFilter && c.author !== currentAuthorFilter) return false;
+        if (query) {
+          const hay = `${c.body || ''} ${c.author || ''}`.toLowerCase();
+          if (!hay.includes(query)) return false;
+        }
+        return true;
+      });
+
+      if (visible.length === 0) return null;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'comment-thread';
+
+      const header = document.createElement('div');
+      header.className = 'comment-thread-header';
+      header.innerHTML = `<span class="thread-count">💬 ${visible.length} comment${visible.length !== 1 ? 's' : ''}</span>
+                          <span class="thread-toggle">${startCollapsed ? '▼ Show' : '▲ Hide'}</span>`;
+
+      const list = document.createElement('div');
+      list.className = 'comment-list';
+      if (startCollapsed) list.style.display = 'none';
+
+      visible.forEach(c => {
+        const cId = getPostId(c);
+        const cDiv = document.createElement('div');
+        cDiv.className = 'comment-item';
+        if (readPosts.has(cId)) cDiv.classList.add('read-post');
+        if (savedPosts.has(cId)) cDiv.classList.add('saved-post');
+
+        const author = c.author || 'unknown';
+        cDiv.innerHTML = `
+          <div class="comment-meta">
+            <span class="post-author comment-author" data-author="${escapeHtml(author)}">${escapeHtml(author)}</span>
+            <span class="post-score">${c.score ?? 0} pts</span>
+            <span class="post-date">${formatDate(c)}</span>
+            <span class="comment-actions">
+              <button class="btn-action btn-read" title="Toggle read">${readPosts.has(cId) ? '✓' : '○'}</button>
+              <button class="btn-action btn-save" title="Toggle saved">${savedPosts.has(cId) ? '★' : '☆'}</button>
+            </span>
+          </div>
+          <div class="comment-body">${escapeHtml(c.body || '')}</div>`;
+
+        cDiv.querySelector('.comment-author').addEventListener('click', e => {
+          e.stopPropagation();
+          filterByAuthor(e.currentTarget.dataset.author);
+        });
+        cDiv.querySelector('.btn-read').addEventListener('click', e => {
+          e.stopPropagation();
+          toggleRead(c, cDiv);
+        });
+        cDiv.querySelector('.btn-save').addEventListener('click', e => {
+          e.stopPropagation();
+          toggleSaved(c, cDiv);
+        });
+
+        list.appendChild(cDiv);
+      });
+
+      let collapsed = Boolean(startCollapsed);
+      header.addEventListener('click', () => {
+        collapsed = !collapsed;
+        list.style.display = collapsed ? 'none' : '';
+        header.querySelector('.thread-toggle').textContent = collapsed ? '▼ Show' : '▲ Hide';
+      });
+
+      wrapper.appendChild(header);
+      wrapper.appendChild(list);
+      return wrapper;
+    }
+
+    function buildCard(item, globalIndex) {
+      const id = getPostId(item);
+      const div = document.createElement('div');
+      div.className = 'post';
+      if (readPosts.has(id)) div.classList.add('read-post');
+      if (savedPosts.has(id)) div.classList.add('saved-post');
+
+      const author = item.author || 'unknown';
+      const sub = item.subreddit || 'unknown';
+
+      const metaHtml = `
+        <div class="post-meta">
+          <span class="post-author" data-author="${escapeHtml(author)}">${escapeHtml(author)}</span>
+          in <span class="post-subreddit">r/${escapeHtml(sub)}</span>
+          <span class="post-score">${item.score ?? 0} pts</span>
+          <span class="post-date">${formatDate(item)}</span>
+        </div>`;
+
+      let bodyHtml = '';
+      if (isTextPost(item)) {
+        bodyHtml = `<h3>${escapeHtml(item.title || '(No Title)')}</h3>` +
+          (item.selftext ? `<div class="post-preview">${escapeHtml(shortenText(item.selftext, 200))}</div>` : '');
+      } else {
+        bodyHtml = `<h3>${escapeHtml(item.title || '(No Title)')}</h3>` +
+          `<div class="post-preview link-preview">
+            <a href="${escapeHtml(item.url || '#')}" target="_blank" rel="noopener">${escapeHtml(shortenText(item.url || '', 120))}</a>
+           </div>`;
+      }
+
+      const actionsHtml = `
+        <div class="post-actions">
+          <button class="btn-action btn-read" title="Toggle read">${readPosts.has(id) ? '✓' : '○'}</button>
+          <button class="btn-action btn-save" title="Toggle saved">${savedPosts.has(id) ? '★' : '☆'}</button>
+        </div>`;
+
+      div.innerHTML = metaHtml + bodyHtml + actionsHtml;
+
+      div.querySelector('.post-author').addEventListener('click', e => {
+        e.stopPropagation();
+        filterByAuthor(e.currentTarget.dataset.author);
+      });
+      div.querySelector('.btn-read').addEventListener('click', e => {
+        e.stopPropagation();
+        toggleRead(item, div);
+      });
+      div.querySelector('.btn-save').addEventListener('click', e => {
+        e.stopPropagation();
+        toggleSaved(item, div);
+      });
+      div.addEventListener('click', () => {
+        markAsRead(item);
+        div.classList.add('read-post');
+        openPost(item, globalIndex);
+      });
+
+      if (showComments.checked) {
+        const thread = buildCommentThread(item.id, true);
+        if (thread) {
+          thread.addEventListener('click', e => e.stopPropagation());
+          div.appendChild(thread);
+        }
+      }
+
+      return div;
+    }
+
+    function renderPage(page) {
+      contentDiv.innerHTML = '';
+      const start = (page - 1) * pageSize;
+      const slice = filteredData.slice(start, start + pageSize);
+
+      if (slice.length === 0) {
+        contentDiv.innerHTML = '<p class="empty-msg">No items match the current filters or load a database.</p>';
+      } else {
+        slice.forEach((item, i) => contentDiv.appendChild(buildCard(item, start + i)));
+      }
+
+      let countText = `${filteredData.length} post${filteredData.length !== 1 ? 's' : ''}`;
+      if (currentAuthorFilter) countText += ` by ${currentAuthorFilter}`;
+      postCountDiv.textContent = countText;
+
+      pageInfo.textContent = `Page ${page} / ${Math.max(1, Math.ceil(filteredData.length / pageSize))}`;
+      prevBtn.disabled = page === 1;
+      nextBtn.disabled = start + pageSize >= filteredData.length;
+      paginationDiv.style.display = '';
+      postCountDiv.style.display = '';
+
+      contentDiv.style.fontSize = fontSizeSelect.value;
+      contentDiv.style.lineHeight = lineHeightSelect.value;
+    }
+
+    function openPost(item, globalIndex) {
+      lastScrollY = window.scrollY;
+
+      lastReadPosition = { id: getPostId(item), index: globalIndex, page: currentPage };
+      saveToStorage('lastReadPosition', lastReadPosition);
+
+      contentDiv.innerHTML = '';
+      paginationDiv.style.display = 'none';
+      postCountDiv.style.display = 'none';
+
+      const nav = document.createElement('div');
+      nav.className = 'blog-nav';
+
+      const backBtn = document.createElement('button');
+      backBtn.className = 'nav-button back-button';
+      backBtn.textContent = '← Back to List';
+      backBtn.onclick = () => {
+        renderPage(currentPage);
+        window.scrollTo(0, lastScrollY);
+        paginationDiv.style.display = '';
+        postCountDiv.style.display = '';
+      };
+
+      const prevPostBtn = document.createElement('button');
+      prevPostBtn.className = 'nav-button prev-post';
+      prevPostBtn.textContent = '← Previous';
+      prevPostBtn.disabled = globalIndex <= 0;
+      prevPostBtn.onclick = () => {
+        if (globalIndex > 0) { const p = filteredData[globalIndex - 1]; markAsRead(p); openPost(p, globalIndex - 1); }
+      };
+
+      const nextPostBtn = document.createElement('button');
+      nextPostBtn.className = 'nav-button next-post';
+      nextPostBtn.textContent = 'Next →';
+      nextPostBtn.disabled = globalIndex >= filteredData.length - 1;
+      nextPostBtn.onclick = () => {
+        if (globalIndex < filteredData.length - 1) { const p = filteredData[globalIndex + 1]; markAsRead(p); openPost(p, globalIndex + 1); }
+      };
+
+      nav.appendChild(backBtn);
+      nav.appendChild(prevPostBtn);
+      nav.appendChild(nextPostBtn);
+
+      const id = getPostId(item);
+      const actionBar = document.createElement('div');
+      actionBar.className = 'single-post-actions';
+
+      const readBtn = document.createElement('button');
+      readBtn.className = 'btn-action btn-read';
+      readBtn.textContent = readPosts.has(id) ? '✓ Read' : '○ Mark as read';
+      readBtn.onclick = () => {
+        readPosts.has(id) ? readPosts.delete(id) : readPosts.add(id);
+        readBtn.textContent = readPosts.has(id) ? '✓ Read' : '○ Mark as read';
+        saveToStorage('readPosts', [...readPosts]);
+      };
+
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'btn-action btn-save';
+      saveBtn.textContent = savedPosts.has(id) ? '★ Saved' : '☆ Save for later';
+      saveBtn.onclick = () => {
+        savedPosts.has(id) ? savedPosts.delete(id) : savedPosts.add(id);
+        saveBtn.textContent = savedPosts.has(id) ? '★ Saved' : '☆ Save for later';
+        saveToStorage('savedPosts', [...savedPosts]);
+      };
+
+      actionBar.appendChild(readBtn);
+      actionBar.appendChild(saveBtn);
+
+      const postDiv = document.createElement('div');
+      postDiv.className = 'post single-post';
+
+      const author = item.author || 'unknown';
+      const authorSpan = `<span class="post-author clickable" data-author="${escapeHtml(author)}">${escapeHtml(author)}</span>`;
+      const metaBlock = `
+        <div class="single-meta">
+          <div>${authorSpan} in <span class="post-subreddit">r/${escapeHtml(item.subreddit || 'unknown')}</span></div>
+          <div>Score: <strong>${item.score ?? 0}</strong> &nbsp;|&nbsp; ${formatDate(item)}</div>
+        </div>`;
+
+      if (isTextPost(item)) {
+        postDiv.innerHTML = `<h3>${escapeHtml(item.title || '(No Title)')}</h3>${metaBlock}
+          <div class="post-content">${escapeHtml(item.selftext || '(No content)')}</div>`;
+      } else {
+        postDiv.innerHTML = `<h3>${escapeHtml(item.title || '(No Title)')}</h3>${metaBlock}
+          <div class="post-content">
+            <a href="${escapeHtml(item.url || '#')}" target="_blank" rel="noopener">${escapeHtml(item.url || '(No link)')}</a>
+          </div>`;
+      }
+
+      postDiv.querySelector('.post-author.clickable')?.addEventListener('click', e => {
+        filterByAuthor(e.currentTarget.dataset.author);
+      });
+
+      const thread = buildCommentThread(item.id, false);
+      if (thread) {
+        thread.classList.add('single-post-comments');
+        postDiv.appendChild(thread);
+      }
+
+      contentDiv.appendChild(nav);
+      contentDiv.appendChild(actionBar);
+      contentDiv.appendChild(postDiv);
+
+      const savedScroll = readingProgress[id];
+      if (savedScroll) {
+        setTimeout(() => window.scrollTo(0, savedScroll), 50);
+      } else {
+        window.scrollTo(0, 0);
+      }
+
+      let scrollTimer;
+      const onScroll = () => {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(() => {
+          readingProgress[id] = window.scrollY;
+          saveToStorage('readingProgress', readingProgress);
+        }, 400);
+      };
+      window.addEventListener('scroll', onScroll);
+    }
+
+    function showResumeButton() {
+      document.querySelector('.resume-reading')?.remove();
+      if (!lastReadPosition) return;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'resume-reading';
+
+      const btn = document.createElement('button');
+      btn.textContent = '▶ Resume Reading';
+      btn.onclick = () => {
+        currentPage = lastReadPosition.page;
+        renderPage(currentPage);
+        setTimeout(() => {
+          const target = filteredData.find(i => getPostId(i) === lastReadPosition.id)
+            || filteredData[lastReadPosition.index];
+          if (target) openPost(target, filteredData.indexOf(target));
+        }, 100);
+      };
+
+      wrap.appendChild(btn);
+      const controls = document.querySelector('.controls');
+      controls.parentNode.insertBefore(wrap, controls.nextSibling);
+    }
+
+    prevBtn.addEventListener('click', () => {
+      if (currentPage > 1) { currentPage--; renderPage(currentPage); window.scrollTo(0, 0); }
+    });
+    nextBtn.addEventListener('click', () => {
+      if (currentPage * pageSize < filteredData.length) { currentPage++; renderPage(currentPage); window.scrollTo(0, 0); }
+    });
+
+    function setupControls() {
+      showTextPosts.addEventListener('change', applyFilters);
+      showLinkPosts.addEventListener('change', applyFilters);
+      showComments.addEventListener('change', applyFilters);
+      showSavedOnly.addEventListener('change', applyFilters);
+      sortBy.addEventListener('change', () => { applySorting(); renderPage(currentPage); });
+      searchInput.addEventListener('input', applyFilters);
+      fontSizeSelect.addEventListener('change', () => { contentDiv.style.fontSize = fontSizeSelect.value; });
+      lineHeightSelect.addEventListener('change', () => { contentDiv.style.lineHeight = lineHeightSelect.value; });
+    }
+
+    (function setupSwipe() {
+      let startX = 0;
+      document.addEventListener('touchstart', e => { startX = e.changedTouches[0].screenX; }, { passive: true });
+      document.addEventListener('touchend', e => {
+        const delta = e.changedTouches[0].screenX - startX;
+        if (Math.abs(delta) < 80) return;
+        const inSingle = Boolean(contentDiv.querySelector('.single-post'));
+        if (inSingle) {
+          if (delta > 0) document.querySelector('.prev-post')?.click();
+          else document.querySelector('.next-post')?.click();
+        } else {
+          if (delta > 0 && !prevBtn.disabled) prevBtn.click();
+          else if (delta < 0 && !nextBtn.disabled) nextBtn.click();
+        }
+      }, { passive: true });
+    })();
+
+    document.addEventListener('click', e => {
+      if (!contentDiv.querySelector('.single-post')) return;
+      if (e.target.closest('.single-post')) return;
+      if (e.target.closest('.blog-nav')) return;
+      if (e.target.closest('.single-post-actions')) return;
+      if (!e.target.closest('#wrapper')) return;
+      renderPage(currentPage);
+      window.scrollTo(0, lastScrollY);
+      paginationDiv.style.display = '';
+      postCountDiv.style.display = '';
+    });
+  </script>
 </body>
 </html>
